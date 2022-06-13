@@ -70,7 +70,7 @@ export class TableQuery<ResourceDefinition> {
         // todo: use mysql limit 1 statement
         // todo: add option for the order by
         const results = await this.find(where, options);
-        return results[0]
+        return results[0] ?? null
     }
 
 }

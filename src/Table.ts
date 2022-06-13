@@ -190,7 +190,11 @@ export class Table {
             }
 
             results = results.map(record => {
-                if (props.length === 1 && props[0] !== "*") return processDataOut(props[0], record[props[0]])
+                if (props.length === 1 && props[0] !== "*") {
+                    const key = props[0]
+                    if (key == undefined) throw new Error(`Undefined`)
+                    return processDataOut(props[0], record[key])
+                }
                 for (const [key] of Object.entries(record)) {
                     record[key] = processDataOut(key, record[key])
                 }
