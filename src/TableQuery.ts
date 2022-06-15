@@ -1,10 +1,10 @@
 import {Table, SelectOptions} from "./Table"
 import {SelectorOperator} from "./Selector"
 
-type Selector<RD> = Partial<RD> | {
+type ObjectSelector<RD> = Partial<RD> | {
     [Property in keyof Partial<RD>]: Partial<Record<SelectorOperator, RD[Property]>> | RD[Property][]
 }
-type WhereSelector<RD> = Selector<RD> | Selector<RD>[]
+type WhereSelector<RD> = ObjectSelector<RD> | ObjectSelector<RD>[]
 
 export class TableQuery<ResourceDefinition> {
 
