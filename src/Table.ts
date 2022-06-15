@@ -23,7 +23,9 @@ export interface AlterTableOptions {
 }
 
 export interface SelectOptions {
-    props?: string[]
+    props: string[],
+    orderBy?: string | string[]
+    orderByDesc: boolean | boolean[]
 }
 
 export class Table {
@@ -99,7 +101,6 @@ export class Table {
         }
     }
 
-    // @ts-ignore - Added for future support
     private async initAlterTable(options?: AlterTableOptions) {
         options = { ...this.alterTableOptions, ...(options || {}) }
 
@@ -159,14 +160,34 @@ export class Table {
         }
     }
 
-    public async select(selector: Selector | CombinedSelector | null, options?: SelectOptions) {
+    public async select<ResourceDefinition>(selector: Selector | CombinedSelector | null, options?: Partial<SelectOptions>): Promise<ResourceDefinition[]>  {
         // todo: add support for ORDER BY
+       const opts: SelectOptions = {
+           props: ["*"],
+           orderBy: undefined,
+           orderByDesc: true,
+           ...(options ?? {})
+       }
 
-        const props = options?.props ?? ["*"]
-        if (props == null || props.length === 0) throw new Error(`You must provide the properties to return or pass "*" to return all props.`)
+        if (opts.props == null || opts.props.length === 0) throw new Error(`You must provide the properties to return or pass "*" to return all props.`)
 
-        let statement = `SELECT ${props.map(p=>p!=="*"?SqlString.escapeId(p):p).join(",")} FROM ${SqlString.escapeId(this.name)}`
+        let statement = `SELECT ${opts.props.map(p=>p!=="*"?SqlString.escapeId(p):p).join(",")} FROM ${SqlString.escapeId(this.name)}`
         if (selector != null) statement += ` WHERE ${selector.makeStatement()}`
+
+
+        if (opts.orderBy) {
+            const generateOrderByStatement = () => {
+                if (Array.isArray(opts.orderBy)) {
+                    return opts.orderBy.map((key, idx) => {
+                        const desc = Array.isArray(opts.orderByDesc) ? opts.orderByDesc[idx] : opts.orderByDesc
+                        return `${SqlString.escapeId(key)} ${desc ? "DESC" : "ASC"}`
+                    }).join(", ")
+                }
+                return `${SqlString.escapeId(opts.orderBy)} ${opts.orderByDesc?"DESC":"ASC"}`
+            }
+            statement += ` ORDER BY ${generateOrderByStatement()}`
+        }
+
 
         try {
             let [results, fields] = await this.mysql.performStatement(statement)
@@ -177,11 +198,11 @@ export class Table {
                 return col.mysqlProcessDataOut(value)
             }
 
-            results = results.map(record => {
-                if (props.length === 1 && props[0] !== "*") {
-                    const key = props[0]
+            return results.map(record => {
+                if (opts.props.length === 1 && opts.props[0] !== "*") {
+                    const key = opts.props[0]
                     if (key == undefined) throw new Error(`Undefined`)
-                    return processDataOut(props[0], record[key])
+                    return processDataOut(opts.props[0], record[key])
                 }
                 for (const [key] of Object.entries(record)) {
                     record[key] = processDataOut(key, record[key])
@@ -189,7 +210,6 @@ export class Table {
                 return record;
             });
 
-            return { results, fields }
         } catch (e) {
             throw e;
         }
