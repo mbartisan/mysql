@@ -1,15 +1,13 @@
 export class CombinedSelector {
 
-    protected readonly mysql
     public readonly selectors
 
-    public static create(mysql, ...orSelectors) {
-        return new CombinedSelector(mysql, orSelectors)
+    public static create(...orSelectors) {
+        return new CombinedSelector(orSelectors)
     }
 
-    constructor(mysql, orSelectors) {
+    constructor(orSelectors) {
         if (orSelectors.length === 0) throw new Error("You must pass a value.");
-        this.mysql = mysql
         this.selectors = orSelectors
     }
 

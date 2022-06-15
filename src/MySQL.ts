@@ -97,15 +97,15 @@ export class MySQL {
     }
 
     public createSelector(key, value, operator): Selector {
-        return Selector.create(this, key, value, operator)
+        return Selector.create(key, value, operator)
     }
 
     public createSelectorFrom(...whereObjects): CombinedSelector {
-        return Selector.from(this, ...whereObjects)
+        return Selector.from(...whereObjects)
     }
 
     public combineSelectors(...orSelectors): CombinedSelector {
-        return Selector.combineSelectors(this, ...orSelectors)
+        return Selector.combineSelectors(...orSelectors)
     }
 
 }

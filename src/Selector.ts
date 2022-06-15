@@ -1,3 +1,4 @@
+import SqlString from "sqlstring"
 import CombinedSelector from "./CombinedSelector";
 
 export enum SelectorOperator {
@@ -18,20 +19,19 @@ export enum SelectorOperator {
 export { CombinedSelector }
 export class Selector {
 
-    private readonly mysql
     public readonly key: string
     public readonly value: any
     public readonly operator: SelectorOperator
 
-    public static create(mysql, key, value, operator) {
-        return new Selector(mysql, key, value, operator)
+    public static create(key, value, operator) {
+        return new Selector(key, value, operator)
     }
 
     // ex.
     // from(mysql, 'foo, 'bar'); -> true if has either foo OR bar
     // from(mysql, ['foo','bar']); -> true if has both foo AND bar
     // from(mysql, 'foo', ['bar','baz']); -> true if has foo OR (bar AND baz)
-    public static from(mysql, ...whereObjects) {
+    public static from(...whereObjects) {
         if (whereObjects.length === 0) throw new Error("You must pass a value.");
 
         const orSelectors: Selector[][] = [];
@@ -42,7 +42,7 @@ export class Selector {
                 // Handle array of values
                 // must be above the object check, since arrays are objects
                 if (Array.isArray(value)) {
-                    andSelectors.push(Selector.create(mysql, key, value, SelectorOperator.In));
+                    andSelectors.push(Selector.create(key, value, SelectorOperator.In));
                     continue;
                 }
 
@@ -51,24 +51,23 @@ export class Selector {
                     if (Object.keys(value).length > 1) throw new Error("Sub where objects can only have one operator filter.");
                     const operator = Object.keys(value)[0];
                     if (!operator) throw new Error("The passed value object does not have an operator key.")
-                    andSelectors.push(Selector.create(mysql, key, value[operator], operator));
+                    andSelectors.push(Selector.create(key, value[operator], operator));
                     continue;
                 }
 
                 // Default
-                andSelectors.push(Selector.create(mysql, key, value, SelectorOperator.Equals));
+                andSelectors.push(Selector.create(key, value, SelectorOperator.Equals));
             }
             orSelectors.push(andSelectors);
         });
-        return Selector.combineSelectors(mysql, ...orSelectors);
+        return Selector.combineSelectors(...orSelectors);
     }
 
-    public static combineSelectors(mysql, ...orSelectors) {
-        return CombinedSelector.create(mysql, ...orSelectors)
+    public static combineSelectors(...orSelectors) {
+        return CombinedSelector.create(...orSelectors)
     }
 
-    constructor(mysql, key: string, value: any, operator = SelectorOperator.Equals) {
-        this.mysql = mysql
+    constructor(key: string, value: any, operator = SelectorOperator.Equals) {
         this.key = key
         this.value = value
         this.operator = operator
@@ -77,40 +76,40 @@ export class Selector {
     public makeStatement() {
         switch (this.operator) {
             case SelectorOperator.Equals: // equals
-                return `${this.mysql.escapeId(this.key)} = ${this.mysql.escape(this.value)}`;
+                return `${SqlString.escapeId(this.key)} = ${SqlString.escape(this.value)}`;
 
             case SelectorOperator.GreaterThan: // greater than
-                return `${this.mysql.escapeId(this.key)} > ${this.mysql.escape(this.value)}`;
+                return `${SqlString.escapeId(this.key)} > ${SqlString.escape(this.value)}`;
 
             case SelectorOperator.LessThan: // less than
-                return `${this.mysql.escapeId(this.key)} < ${this.mysql.escape(this.value)}`;
+                return `${SqlString.escapeId(this.key)} < ${SqlString.escape(this.value)}`;
 
             case SelectorOperator.GreaterThanOrEqual: // greater than or equal to
-                return `${this.mysql.escapeId(this.key)} >= ${this.mysql.escape(this.value)}`;
+                return `${SqlString.escapeId(this.key)} >= ${SqlString.escape(this.value)}`;
 
             case SelectorOperator.LessThanOrEqual: // less than or equal to
-                return `${this.mysql.escapeId(this.key)} <= ${this.mysql.escape(this.value)}`;
+                return `${SqlString.escapeId(this.key)} <= ${SqlString.escape(this.value)}`;
 
             case SelectorOperator.NotEqual: // not equal to
-                return `${this.mysql.escapeId(this.key)} <> ${this.mysql.escape(this.value)}`;
+                return `${SqlString.escapeId(this.key)} <> ${SqlString.escape(this.value)}`;
 
             case SelectorOperator.Like: // pattern search
-                return `${this.mysql.escapeId(this.key)} LIKE '${this.mysql.escape(this.value)}'`;
+                return `${SqlString.escapeId(this.key)} LIKE '${SqlString.escape(this.value)}'`;
 
             case SelectorOperator.StartsWith: // starts with
-                return `${this.mysql.escapeId(this.key)} LIKE '%${this.mysql.escape(this.value)}'`;
+                return `${SqlString.escapeId(this.key)} LIKE '%${SqlString.escape(this.value)}'`;
 
             case SelectorOperator.EndsWith: // ends with
-                return `${this.mysql.escapeId(this.key)} LIKE '${this.mysql.escape(this.value)}%'`;
+                return `${SqlString.escapeId(this.key)} LIKE '${SqlString.escape(this.value)}%'`;
 
             case SelectorOperator.In: // array in
-                return `${this.mysql.escapeId(this.key)} IN (${this.value.map(v=>this.mysql.escape(v)).join(',')})`;
+                return `${SqlString.escapeId(this.key)} IN (${this.value.map(v=>SqlString.escape(v)).join(',')})`;
 
             case SelectorOperator.Null: // null
-                return `${this.mysql.escapeId(this.key)} IS NULL`;
+                return `${SqlString.escapeId(this.key)} IS NULL`;
 
             case SelectorOperator.NotNull: // not null
-                return `${this.mysql.escapeId(this.key)} IS NOT NULL`;
+                return `${SqlString.escapeId(this.key)} IS NOT NULL`;
 
             default:
                 throw new Error("Invalid operator of " + this.operator + ".");

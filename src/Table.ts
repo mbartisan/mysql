@@ -1,3 +1,4 @@
+import SqlString from "sqlstring"
 import Selector, {CombinedSelector} from "./Selector";
 import Column from "./Column";
 
@@ -71,19 +72,19 @@ export class Table {
 
     private async initCreateTable(options?: CreateTableOptions) {
         options = { ...this.createTableOptions, ...(options || {}) }
-        let statement = `CREATE TABLE IF NOT EXISTS ${this.mysql.escapeId(this.name)}`;
+        let statement = `CREATE TABLE IF NOT EXISTS ${SqlString.escapeId(this.name)}`;
 
         const columns: string[] = [];
         const indexes: string[] = [];
 
         this.columns.forEach((col) => {
-            let sql = `${this.mysql.escapeId(col.name)} ${col.mysqlDataType}`;
+            let sql = `${SqlString.escapeId(col.name)} ${col.mysqlDataType}`;
             if (col.isUnsigned === true) sql += " UNSIGNED";
             if (col.isNullable === false) sql += " NOT NULL";
             if (col.autoIncrement === true) sql += " AUTO_INCREMENT";
-            if (col.isPrimaryKey === true) indexes.push(`PRIMARY KEY (${this.mysql.escapeId(col.name)})`);
-            if (col.hasIndex === true) indexes.push(`INDEX (${this.mysql.escapeId(col.name)})`);
-            if (col.isUnique === true) indexes.push(`UNIQUE (${this.mysql.escapeId(col.name)})`);
+            if (col.isPrimaryKey === true) indexes.push(`PRIMARY KEY (${SqlString.escapeId(col.name)})`);
+            if (col.hasIndex === true) indexes.push(`INDEX (${SqlString.escapeId(col.name)})`);
+            if (col.isUnique === true) indexes.push(`UNIQUE (${SqlString.escapeId(col.name)})`);
             columns.push(sql);
         });
 
@@ -102,32 +103,19 @@ export class Table {
     private async initAlterTable(options?: AlterTableOptions) {
         options = { ...this.alterTableOptions, ...(options || {}) }
 
-
-        // Add columns
-        // todo: better error handling
-        if (options.addColumns) {
-            await Promise.all(this.columns.map(col => {
-                let statement = `ALTER TABLE ${this.mysql.escapeId(this.name)} ADD COLUMN IF NOT EXISTS`;
-                statement += ` ${this.mysql.escapeId(col.name)} ${col.mysqlDataType}`;
-                if (col.isUnsigned === true) statement += " UNSIGNED";
-                if (col.isNullable === false) statement += " NOT NULL";
-                if (col.autoIncrement === true) statement += " AUTO_INCREMENT";
-                return this.mysql.performStatement(statement);
+        const performColumnStatement = (statement: string) => {
+            return Promise.all(this.columns.map(col => {
+                let sql = `ALTER TABLE ${SqlString.escapeId(this.name)} ${statement}`;
+                sql += ` ${SqlString.escapeId(col.name)} ${col.mysqlDataType}`;
+                if (col.isUnsigned === true) sql += " UNSIGNED";
+                if (col.isNullable === false) sql += " NOT NULL";
+                if (col.autoIncrement === true) sql += " AUTO_INCREMENT";
+                return this.mysql.performStatement(sql);
             }))
         }
 
-
-        // Modify columns
-        if (options.modifyColumns) {
-            await Promise.all(this.columns.map(col => {
-                let statement = `ALTER TABLE ${this.mysql.escapeId(this.name)} MODIFY COLUMN IF EXISTS`;
-                statement += ` ${this.mysql.escapeId(col.name)} ${col.mysqlDataType}`;
-                if (col.isUnsigned === true) statement += " UNSIGNED";
-                if (col.isNullable === false) statement += " NOT NULL";
-                if (col.autoIncrement === true) statement += " AUTO_INCREMENT";
-                return this.mysql.performStatement(statement);
-            }))
-        }
+        if (options.addColumns) await performColumnStatement("ADD COLUMN IF NOT EXISTS")
+        if (options.modifyColumns) await performColumnStatement("MODIFY COLUMN IF EXISTS")
 
     }
 
@@ -177,7 +165,7 @@ export class Table {
         const props = options?.props ?? ["*"]
         if (props == null || props.length === 0) throw new Error(`You must provide the properties to return or pass "*" to return all props.`)
 
-        let statement = `SELECT ${props.map(p=>p!=="*"?this.mysql.escapeId(p):p).join(",")} FROM ${this.mysql.escapeId(this.name)}`
+        let statement = `SELECT ${props.map(p=>p!=="*"?SqlString.escapeId(p):p).join(",")} FROM ${SqlString.escapeId(this.name)}`
         if (selector != null) statement += ` WHERE ${selector.makeStatement()}`
 
         try {
@@ -210,7 +198,7 @@ export class Table {
     public async update(recordData: any, selector: Selector | CombinedSelector | null) {
         const data = { ...recordData };
 
-        let statement = `UPDATE ${this.mysql.escapeId(this.name)} SET ?`;
+        let statement = `UPDATE ${SqlString.escapeId(this.name)} SET ?`;
         if (selector != null) {
             statement += ` WHERE ${selector.makeStatement()}`;
         }
@@ -244,7 +232,7 @@ export class Table {
     }
 
     public async delete(selector: Selector | CombinedSelector | null) {
-        let statement = `DELETE FROM ${this.mysql.escapeId(this.name)}`;
+        let statement = `DELETE FROM ${SqlString.escapeId(this.name)}`;
 
         if (selector != null) {
             statement += ` WHERE ${selector.makeStatement()}`;
